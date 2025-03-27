@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -8,8 +8,6 @@ const port = process.env.PORT || 5000;
 // middleware
 app.use(cors());
 app.use(express.json());
-
-
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.3wtib.mongodb.net/?appName=Cluster0`;
 
@@ -24,7 +22,6 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
     const blogCollection = client.db('blogPlant').collection('blogs');
@@ -33,7 +30,7 @@ async function run() {
       const cursor = blogCollection.find();
       const result = await cursor.toArray();
       res.send(result);
-    })
+    });
 
     app.post('/blogs', async (req, res) => {
       const blog = req.body;
@@ -42,21 +39,44 @@ async function run() {
       res.send(result);
     });
 
-    // Send a ping to confirm a successful connection
+    app.delete('/blogs/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await blogCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.put('/blogs/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateBlog = req.body;
+      
+      const plant = {
+        $set: {
+          title: updateBlog.title,
+          category: updateBlog.category,
+          shortDescription: updateBlog.shortDescription,
+          longDescription: updateBlog.longDescription,
+          photoURL: updateBlog.photoURL,
+        }
+      };
+      const result = await blogCollection.updateOne(filter, plant, options);
+      res.send(result);
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+    // The client remains open for further operations, no need to close it
   }
 }
 run().catch(console.dir);
 
-
 app.get('/', (req, res) => {
-  res.send('Plant tree server is running!')
-})
+  res.send('Plant tree server is running!');
+});
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+  console.log(`Example app listening on port ${port}`);
+});
